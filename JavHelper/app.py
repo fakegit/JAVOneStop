@@ -2,7 +2,8 @@
 import os
 from flask import Flask, render_template, jsonify
 from werkzeug.exceptions import HTTPException
-from flaskwebgui import FlaskUI
+#from flaskwebgui import FlaskUI
+
 from traceback import format_exc
 
 from JavHelper.views.emby_actress import emby_actress
@@ -19,7 +20,7 @@ def create_app():
     app.register_blueprint(directory_scan)
 
     app.config['JSON_AS_ASCII'] = False
-    ui = FlaskUI(app)
+    #ui = FlaskUI(app)
 
     # init setting file
     if not os.path.isfile(DEFAULT_INI):
@@ -40,7 +41,7 @@ def create_app():
         # now you're handling non-HTTP exceptions only
         return jsonify({'errors': format_exc()}), 500
 
-    return ui
+    return app
 
 
 def create_app_backend():
