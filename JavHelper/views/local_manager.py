@@ -12,10 +12,21 @@ from JavHelper.cache import cache
 from JavHelper.scripts.emby_actors import send_emby_images as old_upload
 from JavHelper.core.emby_actors import EmbyActorUpload
 from JavHelper.utils import resource_path
-from JavHelper.model.jav_manager import JavManagerDB
+
+if return_default_config_string('db_type') == 'sqlite':
+    from JavHelper.model.jav_manager import SqliteJavManagerDB as JavManagerDB
+else:
+    from JavHelper.model.jav_manager import BlitzJavManagerDB as JavManagerDB
 
 
 local_manager = Blueprint('local_manager', __name__, url_prefix='/local_manager')
+
+@local_manager.route('/migrate_to_sqlite', methods=['GET'])
+def migrate_to_sqlite():
+    from JavHelper.model.jav_manager import migrate_blitz_to_sqlite
+    migrate_blitz_to_sqlite()
+
+    return 'ok'
 
 @local_manager.route('/directory_path', methods=['GET'])
 def directory_path():
@@ -24,6 +35,7 @@ def directory_path():
 @local_manager.route('/readme', methods=['GET'])
 def readme():
     source_filename_map = {
+        'changelog': 'CHANGELOG',
         'main_readme': 'README.md',
         'javdownloader_readme': 'JAV_HELP.md'
     }
@@ -155,6 +167,8 @@ def rewrite_nfo():
     req_data = json.loads(request.get_data() or '{}')
     update_dict = req_data['update_dict']
 
+    JavManagerDB().upcreate_jav(update_dict)
+
     file_writer = EmbyFileStructure(return_default_config_string('file_path'))
     # we can directly call this since it only writes top level key fields
     file_writer.write_nfo(update_dict, verify=True)
@@ -166,9 +180,11 @@ def rewrite_images():
     req_data = json.loads(request.get_data() or '{}')
     update_dict = req_data['update_dict']
 
+    JavManagerDB().upcreate_jav(update_dict)
+
     file_writer = EmbyFileStructure(return_default_config_string('file_path'))
     # we can directly call this since it only writes top level key fields
-    file_writer.write_images(update_dict)
+    file_writer.write_images(update_dict, fail_on_error=True)
 
     return jsonify({'success': 'good'})
 
@@ -187,7 +203,8 @@ def find_images():
     db_conn = JavManagerDB()
     try:
         jav_obj = dict(db_conn.get_by_pk(car))
-    except DoesNotExist:
+    except (DoesNotExist, TypeError) as e:
+        # typeerror to catch dict(None)
         jav_obj = {'car': car}
 
     # verify sources

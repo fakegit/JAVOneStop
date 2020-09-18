@@ -14,9 +14,14 @@ from JavHelper.core.javbus import JavBusScraper, javbus_magnet_search
 from JavHelper.core.javdb import JavDBScraper
 from JavHelper.core.arzon import ArzonScraper
 from JavHelper.core.jav777 import jav777_download_search
+from JavHelper.core.jav321 import Jav321Scraper
 from JavHelper.core.file_scanner import EmbyFileStructure
 from JavHelper.core.utils import parsed_size_to_int
-from JavHelper.model.jav_manager import JavManagerDB
+
+if return_default_config_string('db_type') == 'sqlite':
+    from JavHelper.model.jav_manager import SqliteJavManagerDB as JavManagerDB
+else:
+    from JavHelper.model.jav_manager import BlitzJavManagerDB as JavManagerDB
 
 
 parse_jav = Blueprint('parse_jav', __name__, url_prefix='/parse_jav')
@@ -24,7 +29,8 @@ SOURCES_MAP = {
     'javlibrary': JavLibraryScraper,
     'arzon': ArzonScraper,
     'javbus': JavBusScraper,
-    'javdb': JavDBScraper
+    'javdb': JavDBScraper,
+    'jav321': Jav321Scraper
 }
 
 
@@ -303,7 +309,6 @@ def parse_single_jav(jav_obj: dict, sources):
 
     for scrape in sources[::-1]:  # scrape low priority sources first
         try:
-            #import ipdb; ipdb.set_trace()
             scraped_info = SOURCES_MAP[scrape]({'car': jav_obj['car']}).scrape_jav()
         except Exception as e:
             errors = (jav_obj.get('errors') or [])

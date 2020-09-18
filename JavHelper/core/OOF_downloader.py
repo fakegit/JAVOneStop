@@ -7,9 +7,14 @@ from time import sleep
 from traceback import print_exc
 
 from JavHelper.core.backend_translation import BackendTranslation
-from JavHelper.model.jav_manager import JavManagerDB
 from JavHelper.core.aria2_handler import get_aria2
 from JavHelper.core.utils import byte_to_MB
+from JavHelper.core.ini_file import return_default_config_string
+
+if return_default_config_string('db_type') == 'sqlite':
+    from JavHelper.model.jav_manager import SqliteJavManagerDB as JavManagerDB
+else:
+    from JavHelper.model.jav_manager import BlitzJavManagerDB as JavManagerDB
 
 
 LOCAL_OOF_COOKIES = '115_cookies.json'
@@ -24,6 +29,13 @@ class OOFDownloader:
     def __init__(self):
         self.cookies = self.load_local_cookies()
         self.translate_map = BackendTranslation()
+
+    def check_quota(self):
+        r = requests.get('https://115.com/web/lixian/?ct=lixian&ac=get_quota_package_info', cookies=self.cookies)
+        r = json.loads(r.text)
+        return '{} / {}'.format(
+            r['surplus'], r['count']
+        )
 
     def get_oof_userid(self):
         r = requests.get('https://115.com/?cid=0&offset=0&mode=wangpan', cookies=self.cookies)
@@ -156,7 +168,8 @@ class OOFDownloader:
         db_conn = JavManagerDB()
         try:
             jav_obj = dict(db_conn.get_by_pk(car))
-        except DoesNotExist:
+        except (DoesNotExist, TypeError) as e:
+            # typeerror to catch dict(None)
             jav_obj = {'car': car}
 
         retry_num = 0

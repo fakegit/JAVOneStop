@@ -9,9 +9,14 @@ import codecs
 from copy import deepcopy
 
 from JavHelper.core.backend_translation import BackendTranslation
-from JavHelper.model.jav_manager import JavManagerDB
 from JavHelper.core.nfo_parser import EmbyNfo
+
 from JavHelper.core.ini_file import return_default_config_string
+
+if return_default_config_string('db_type') == 'sqlite':
+    from JavHelper.model.jav_manager import SqliteJavManagerDB as JavManagerDB
+else:
+    from JavHelper.model.jav_manager import BlitzJavManagerDB as JavManagerDB
 
 
 POSTER_NAME = 'poster'
@@ -43,7 +48,7 @@ class EmbyFileStructure:
         # may encounter weird error
         return JavManagerDB()
 
-    def write_images(self, jav_obj):
+    def write_images(self, jav_obj, fail_on_error=False):
         poster_name = POSTER_NAME
         fanart_name = FANART_NAME
 
@@ -64,9 +69,19 @@ class EmbyFileStructure:
         poster_path = os.path.join(directory, poster_name+image_ext)
         fanart_path = os.path.join(directory, fanart_name+image_ext)
 
-        r = requests.get(url_obj.geturl(), stream=True)
-        if r.status_code != 200:
-            raise Exception('Image download failed for {}'.format(url_obj.geturl()))
+        try:
+            r = requests.get(url_obj.geturl(), stream=True)
+        except Exception as e:
+            print('Image download failed for {} due to {}'.format(url_obj.geturl(), e))
+            return 
+        if r.status_code != 200 or "now_printing" in r.url:
+            if fail_on_error:
+                # raise error if we are just writing images
+                raise Exception('Image download failed for {}'.format(url_obj.geturl()))
+            # print the error but not fail the write
+            print('Image download failed for {}'.format(url_obj.geturl()))
+            return 
+
         with open(fanart_path, 'wb') as pic:
             for chunk in r:
                 pic.write(chunk)

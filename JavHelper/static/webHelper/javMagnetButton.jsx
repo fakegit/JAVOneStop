@@ -4,10 +4,14 @@ import Spinner from 'react-bootstrap/Spinner'
 
 import { useTranslation } from 'react-i18next';
 
-function test_fetch(link) {
-  return new Promise(resolve => {
-    setTimeout(() => {resolve({'success': 'okok'})}, 10000)
-  })
+const copyToClipboard = (i_text) => {
+  console.log('copied', i_text)
+  var textField = document.createElement('textarea')
+  textField.innerText = i_text
+  document.body.appendChild(textField)
+  textField.select()
+  document.execCommand('copy')
+  textField.remove()
 }
 
 const JavMagnetButton = ({ car, download_link, setJavStat, type }) => {
@@ -35,7 +39,7 @@ const JavMagnetButton = ({ car, download_link, setJavStat, type }) => {
           setLoading(false);
         })
       } else if (isLoading) {
-        fetch('/javlib_browser/download_via_aria',
+        fetch('/jav_browser/download_via_aria',
               {method: 'post',
               body: JSON.stringify({
                       "car": _car,
@@ -45,14 +49,15 @@ const JavMagnetButton = ({ car, download_link, setJavStat, type }) => {
         .then((jsonData) => {
           if (jsonData.success === undefined) {
             console.log(t('log_error'), jsonData.error)
+            // don't allow redownload if failed
           } else {
             fetch(`/local_manager/update_car_ikoa_stat?car=${jsonData.success.car}&stat=4`)
               .then(() => {
                 console.log(t('log_aria2_download'), jsonData.success.car);
                 setJavStat(4);
               })
+            setLoading(false);
           }
-          setLoading(false);
         })
   }}, [isLoading]);  //only run when isLoading changes
 
@@ -84,7 +89,7 @@ const JavMagnetButton = ({ car, download_link, setJavStat, type }) => {
     )
   } else {
     return(
-      <a href={_download_link} rel="noreferrer" target="_blank">{t('download_web_button')}</a>
+      <a onClick={() => {copyToClipboard(car)}} href={_download_link} rel="noreferrer" target="_blank">{t('download_web_button')}</a>
     )
   }
   };

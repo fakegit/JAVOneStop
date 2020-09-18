@@ -15,11 +15,11 @@ import './javBrowserV2.css';
 import { useEffect } from 'react';
 
 
-const JavCardV2 = ({ update_obj, source_site, jav_stat_filter, url_access, mark_1 }) => {
+const JavCardV2 = ({ update_obj, source_site, jav_stat_filter, url_access, mark_to }) => {
     const { t, i18n } = useTranslation();
     
     const [card_jav_obj, setCardJavObj] = useState(update_obj);
-    const [jav_stat, setJavStat] = useState(card_jav_obj.stat);
+    const [jav_stat, setJavStat] = useState(Number(card_jav_obj.stat));
     const [loading, setLoading] = useState(false);
 
     const [magnet_site, setMagnetSite] = useState('overall');
@@ -28,7 +28,7 @@ const JavCardV2 = ({ update_obj, source_site, jav_stat_filter, url_access, mark_
 
     // trigger by parent shortcut key to mark jav read
     useEffect(() => {
-        if (mark_1 === 1 && jav_stat === 2) {
+        if (mark_to === 1 && jav_stat === 2) {
             //console.log('updating to 1 for: ', _obj.car);
             url_access.schedule(() => fetch(`/local_manager/update_car_ikoa_stat?car=`+String(update_obj.car)+`&stat=`+String(1)))
             .then(response => response.json())
@@ -40,8 +40,20 @@ const JavCardV2 = ({ update_obj, source_site, jav_stat_filter, url_access, mark_
                     console.log('Fail to update stat: ', _obj.car, stat_map[1]);
                 }
             });
+        } else if (mark_to === 0 && jav_stat !== 3 && jav_stat !== 2) {
+            //console.log('updating to 1 for: ', _obj.car);
+            url_access.schedule(() => fetch(`/local_manager/update_car_ikoa_stat?car=`+String(update_obj.car)+`&stat=`+String(0)))
+            .then(response => response.json())
+            .then((jsonData) => {
+                //console.log(jsonData.success);
+                if (jsonData.success) {
+                    setJavStat(0)
+                } else {
+                    console.log('Fail to update stat: ', _obj.car, stat_map[1]);
+                }
+            });
         }
-    }, [mark_1])
+    }, [mark_to])
     
     useEffect(() => {
         if (jav_stat === 3) {
@@ -76,6 +88,14 @@ const JavCardV2 = ({ update_obj, source_site, jav_stat_filter, url_access, mark_
                 marginBottom: '20px',
                 background: 'rgba(255, 255, 0, 0.2)',
             })
+        } else if (jav_stat === 5) {
+            setBorderStyle({
+                borderColor: 'blue', 
+                borderWidth: '2px', 
+                borderStyle: 'solid',
+                marginBottom: '20px',
+                background: 'rgba(203, 225, 243, 0.5)',
+            })
         }
     }, [jav_stat]);
     
@@ -83,7 +103,7 @@ const JavCardV2 = ({ update_obj, source_site, jav_stat_filter, url_access, mark_
     const handleShowDetailImage = () => {
         if (card_jav_obj.image === undefined) {
             setLoading(true);
-            fetch(`/${source_site}/get_set_javs?set_type=番号&search_string=`+card_jav_obj.car)
+            fetch(`/jav_browser/get_set_javs?lib_type=${source_site}&set_type=番号&search_string=`+card_jav_obj.car)
             .then(response => response.json())
             .then((jsonData) => {
                 //console.log(jsonData.success);
@@ -103,10 +123,12 @@ const JavCardV2 = ({ update_obj, source_site, jav_stat_filter, url_access, mark_
     // use card_jav_obj.stat instead of internal jav_stat since we want to keep original state for easier button click
     if ((jav_stat_filter.length > 0 && jav_stat_filter.includes(card_jav_obj.stat)) || jav_stat_filter.length == 0) {
         return (
-            <Container>
-            <Row xs={1} md={2} style={border_style} key={card_jav_obj.javid} id="main-javcard">
-                <Col xs={{span: 12, order: 1}} md={{span: 4, order: 1}}><img style={{opacity: _manual_opacity, maxWidth: "100%"}} src={card_jav_obj.img}></img></Col>
-                <Col xs={{span: 12, order: 2}} md={{span: 8, order: 2}}>
+            <Container fluid>
+            <Row style={border_style} key={card_jav_obj.javid} id="main-javcard">
+                <Col lg={{span: 12, order: 1}} xl={{order: 1}}>
+                    <img style={{opacity: _manual_opacity, maxWidth: "100%", minWidth: "70%"}} src={card_jav_obj.img || card_jav_obj.image}></img>
+                </Col>
+                <Col lg={{span: 12, order: 2}} xl={{order: 2}}>
                     <Row><Col><p>{card_jav_obj.car} {card_jav_obj.title}</p></Col></Row>
                     <Row><Col>
                     <StatButtonGroup 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+//import { useParams } from "react-router-dom";
 
 import Pagination from 'rc-pagination'
 import index from 'rc-pagination/assets' // import for pagination styling do not remove
@@ -22,30 +23,44 @@ import OofValidator from "./oofValidator"
 import './javBrowserV2.css';
 
 
-const JavBroswerV2 = () => {
+const JavBroswerV2 = (props) => {
+    let params = new URLSearchParams(props.location.search);
+
     const { t, i18n } = useTranslation();
-    const [source_site, setSourceSite] = useState('javbus_browser');
+    const [source_site, setSourceSite] = useState(params.get('lib_type') || 'javbus');
     const [isLoading, setLoading] = useState(true);
 
     const [jav_browser_batch_limiter, setUrlLimiter] = useState(new Bottleneck({maxConcurrent: 1}));
 
     const [jav_objs, setJavObjs] = useState([]);
-    const [mark_1, setMarkOne] = useState(0);
+    const [mark_to, setMarkTo] = useState(99);
     const [jav_stat_filter, setJavStatFilter] = useState([0, 2]);
 
     const [jav_obj_cards, setJavObjCards] = useState([]);
     const [has_more_obj, setHasMoreObj] = useState(true);
 
-    const [jav_set_name, setJavSet] = useState('subtitled');
-    const [page_num, setPageNum] = useState('1');
+    const [jav_set_name, setJavSet] = useState(params.get('set_type') || 'trending_updates');
+    const [page_num, setPageNum] = useState(params.get('page_num') || '1');
     const [max_page, setMaxPage] = useState('25');
     const scroll_trigger = 1.1;
     
     const [search_string, setSearchString] = useState('');
 
+    const updateUrlandLoading = (up_search_str=undefined, up_set_name=undefined) => {
+        //console.log('ok', up_search_str, up_set_name);
+        let _params = new URLSearchParams(props.location.search);
+        _params.set('lib_type', source_site);
+        _params.set('set_type', up_set_name || jav_set_name);
+        _params.set('page_num', page_num);
+        if (up_search_str) { _params.set('search_string', up_search_str); }
+        else { _params.delete('search_string') }
+        props.history.push(props.location.pathname + "?" + _params.toString());
+    }
+
     // when switching from different site, force an update
     useEffect(() => {
-        fetch(`/${source_site}/get_set_javs?set_type=`+jav_set_name)
+        fetch(`/jav_browser/get_set_javs?lib_type=${source_site}&set_type=`+jav_set_name+
+        `&page_num=`+String(page_num)+`&search_string=`+String(search_string))
             .then(response => response.json())
             .then((jsonData) => {
                 if (jsonData.error) {
@@ -55,6 +70,7 @@ const JavBroswerV2 = () => {
                     setJavObjs(jsonData.success.jav_objs);
                     setMaxPage(jsonData.success.max_page);
                 }
+                updateUrlandLoading();
                 setLoading(false);
             });
     }, [source_site]);
@@ -71,7 +87,7 @@ const JavBroswerV2 = () => {
             setHasMoreObj(true);  // always has more if page up
             
             setLoading(true);
-            fetch(`/${source_site}/get_set_javs?set_type=`+jav_set_name+
+            fetch(`/jav_browser/get_set_javs?lib_type=${source_site}&set_type=`+jav_set_name+
             `&page_num=`+String(page_num)+`&search_string=`+String(search_string))
                 .then(response => response.json())
                 .then((jsonData) => {
@@ -86,6 +102,7 @@ const JavBroswerV2 = () => {
                             setHasMoreObj(false);
                         }
                     }
+                    updateUrlandLoading();
                     setLoading(false);
                 })
         }
@@ -95,7 +112,7 @@ const JavBroswerV2 = () => {
         // this handles infinite scroll data fetch
         console.log(t('log_page_incremental'), page_num);
         let _new_page = String(parseInt(page_num)+1);
-        fetch(`/${source_site}/get_set_javs?set_type=`+jav_set_name+
+        fetch(`/jav_browser/get_set_javs?lib_type=${source_site}&set_type=`+jav_set_name+
         `&page_num=`+String(_new_page)+`&search_string=`+String(search_string))
             .then(response => response.json())
             .then((jsonData) => {
@@ -119,27 +136,31 @@ const JavBroswerV2 = () => {
 
     const handleFormSearch = (event) => {
         event.preventDefault();
-        console.log(t('log_search_web_jav'), event.target.elements[0].value, event.target.elements[1].value);
+        let _search_set = event.target.elements[0].value;
+        let _search_str = event.target.elements[1].value;
+        console.log(t('log_search_web_jav'), _search_set, _search_str);
         // update react states
         setJavSet(event.target.elements[0].value);
-        setSearchString(event.target.elements[1].value);
+        setSearchString(_search_str);
 
         // initialize other state
         setLoading(true);
         setPageNum('1');  
         setHasMoreObj(true);
 
-        fetch(`/${source_site}/get_set_javs?set_type=`+String(event.target.elements[0].value)+
-            `&page_num=`+String(1)+`&search_string=`+String(event.target.elements[1].value))
+        fetch(`/jav_browser/get_set_javs?lib_type=${source_site}&set_type=`+String(_search_set)+
+            `&page_num=`+String(1)+`&search_string=`+String(_search_str))
             .then(response => response.json())
             .then((jsonData) => {
                 if (jsonData.error) {
+                    updateUrlandLoading(_search_str, _search_set);
                     setLoading(false);
                     console.log('Error: ', jsonData.error);
                 }
                 //console.log(jsonData.success);
                 setJavObjs(jsonData.success.jav_objs);
                 setMaxPage(jsonData.success.max_page);
+                updateUrlandLoading(_search_str, _search_set);
                 setLoading(false);
             });
     };
@@ -147,19 +168,27 @@ const JavBroswerV2 = () => {
     const keyMap = {
         next_page: 'd',
         previous_page: 'a',
-        mark_all_1: '1'
+        mark_all_1: '1',
+        mark_all_0: '`'
     };
 
     function handle_mark_1 () {
         //console.log('pressed 1');
-        setMarkOne(1);
-        setTimeout(setMarkOne(0), 1000);
+        setMarkTo(1);
+        setTimeout(setMarkTo(99), 1000);
+    }
+
+    function handle_mark_0 () {
+        //console.log('pressed 1');
+        setMarkTo(0);
+        setTimeout(setMarkTo(99), 1000);
     }
 
     const hotkey_handlers = {
         next_page: event => setPageNum(prevIndex => String(parseInt(prevIndex)+1)),
         previous_page: event => setPageNum(prevIndex => String(parseInt(prevIndex)-1)),
         mark_all_1: event => handle_mark_1(),
+        mark_all_0: event => handle_mark_0(),
     }
 
     return (
@@ -167,11 +196,11 @@ const JavBroswerV2 = () => {
             {isLoading ? <Spinner id='overlaySpinner' animation="border" size='lg'/> : <div></div>}
         <div>
             <JavBrowserChecker />
-            <Container>
+            <Container fluid>
                 <Row>
                 <Col xs={{span: 12, order: 1}} md={{span: 6, order: 1}}>
                     <JavSetSearchGroup jav_set_name={jav_set_name} 
-                        isLoading={isLoading} setLoading={setLoading}
+                        isLoading={isLoading} setLoading={setLoading} updateUrlandLoading={updateUrlandLoading}
                         source_site={source_site} setSourceSite={setSourceSite}
                         setJavSet={setJavSet} setSearchString={setSearchString} 
                         setJavObjs={setJavObjs} setMaxPage={setMaxPage} setPageNum={setPageNum}
@@ -204,9 +233,9 @@ const JavBroswerV2 = () => {
                     <Col><OofValidator /></Col>
                 </Row>
             </Container>
-            <div>
+            <div style={{padding: "5px"}}>
                 <Pagination simple current={parseInt(page_num)} total={parseInt(max_page)} 
-                    defaultPageSize={1}
+                    defaultPageSize={1} showQuickJumper
                     onChange={current => setPageNum(String(current))}
                 />
             </div>
@@ -216,14 +245,16 @@ const JavBroswerV2 = () => {
                         jav_objs.map(
                             function(jav_obj){
                                 return <JavCardV2 key={jav_obj.car} update_obj={jav_obj} source_site={source_site} jav_stat_filter={jav_stat_filter}
-                                    url_access={jav_browser_batch_limiter} mark_1={mark_1} />
+                                    url_access={jav_browser_batch_limiter} mark_to={mark_to} />
                                 }
                         )
                     }
+                    <div style={{padding: "5px"}}>
                     <Pagination simple current={parseInt(page_num)} total={parseInt(max_page)} 
                         defaultPageSize={1}
                         onChange={current => setPageNum(String(current))}
                     />
+                    </div>
                 </div> : <div>
                     <InfiniteScroll
                         dataLength={jav_obj_cards.length || 0}
